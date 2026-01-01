@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-01-01T14:45:06.801Z",
+  "explorations": [
+    {
+      "title": "Test",
+      "date": "2026-01-01",
+      "category": "mobile",
+      "status": "idea",
+      "id": "exp_1767233338218_2e57e1mpu",
+      "dayNumber": 1,
+      "createdAt": "2026-01-01T02:08:58.218Z",
+      "updatedAt": "2026-01-01T14:20:45.680Z"
+    },
+    {
+      "id": "sample_1",
+      "title": "Welcome to 2026!",
+      "description": "Your first exploration of the year. Start building amazing UIs!",
+      "date": "2026-01-01",
+      "dayNumber": 1,
+      "category": "mobile",
+      "status": "completed",
+      "createdAt": "2026-01-01T01:35:09.062Z",
+      "updatedAt": "2026-01-01T14:45:06.765Z"
+    }
+  ]
+}
