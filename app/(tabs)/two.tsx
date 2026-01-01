@@ -35,9 +35,13 @@ export default function CalendarScreen() {
   });
 
   const dayMap = new Map<number, number>();
+  const completedDaySet = new Set<number>();
   monthExplorations.forEach(exp => {
     const day = new Date(exp.date).getDate();
     dayMap.set(day, (dayMap.get(day) || 0) + 1);
+    if (exp.status === 'completed') {
+      completedDaySet.add(day);
+    }
   });
 
   // Generate calendar weeks (array of 7-day rows)
@@ -129,6 +133,7 @@ export default function CalendarScreen() {
               const count = day ? dayMap.get(day) || 0 : 0;
               const isToday = isCurrentMonth && day === currentDay;
               const hasActivity = count > 0;
+              const hasCompleted = day ? completedDaySet.has(day) : false;
               
               return (
                 <RNView key={dayIndex} style={styles.dayCell}>
@@ -144,8 +149,11 @@ export default function CalendarScreen() {
                       ]}>
                         {day}
                       </Text>
-                      {hasActivity && !isToday && (
-                        <RNView style={styles.activityDot} />
+                      {hasCompleted && (
+                        <RNView style={[
+                          styles.activityDot,
+                          isToday && styles.activityDotToday,
+                        ]} />
                       )}
                     </RNView>
                   )}
@@ -239,11 +247,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCellInner: {
-    width: CELL_SIZE - 8,
-    height: CELL_SIZE - 8,
+    width: CELL_SIZE - 6,
+    height: CELL_SIZE - 6,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: (CELL_SIZE - 6) / 2,
+    paddingBottom: 4,
   },
   todayCell: {
     backgroundColor: COLORS.blue,
@@ -254,7 +263,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   dayText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
     color: COLORS.textMuted,
   },
@@ -268,11 +277,14 @@ const styles = StyleSheet.create({
   },
   activityDot: {
     position: 'absolute',
-    bottom: 2,
+    bottom: 6,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.blue,
+    backgroundColor: COLORS.green,
+  },
+  activityDotToday: {
+    backgroundColor: '#FFFFFF',
   },
   stats: {
     flexDirection: 'row',
