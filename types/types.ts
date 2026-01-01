@@ -7,8 +7,28 @@ export interface Exploration {
   category: ExplorationCategory;
   status: ExplorationStatus;
   thumbnailUri?: string;
+  tags?: string[];
+  templateId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ExplorationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: ExplorationCategory;
+  defaultTags: string[];
+  icon: string;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt?: string;
+  condition: { type: 'streak' | 'total' | 'category' | 'daily'; value: number };
 }
 
 export type ExplorationCategory = 'mobile' | 'web' | 'component' | 'animation' | 'other';

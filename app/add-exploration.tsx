@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text, View } from '@/components/Themed';
+import { TEMPLATES } from '@/constants/templates';
 import { useExplorations } from '@/hooks/useExplorations';
 import { CATEGORY_LABELS, ExplorationCategory, ExplorationStatus, STATUS_LABELS } from '@/types/types';
 
@@ -54,19 +55,37 @@ export default function AddExplorationModal() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<ExplorationCategory>('mobile');
   const [status, setStatus] = useState<ExplorationStatus>('idea');
+  const [tags, setTags] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSelectTemplate = (templateId: string) => {
+    const template = TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplateId(templateId);
+      setCategory(template.category);
+      setTags(template.defaultTags.join(', '));
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
     
     setIsSubmitting(true);
     try {
+      const parsedTags = tags
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+      
       await addExploration({
         title: title.trim(),
         description: description.trim() || undefined,
         date: new Date().toISOString().split('T')[0],
         category,
         status,
+        tags: parsedTags.length > 0 ? parsedTags : undefined,
+        templateId: selectedTemplateId || undefined,
       });
       router.back();
     } catch (error) {
@@ -96,6 +115,36 @@ export default function AddExplorationModal() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Templates */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Start from Template</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templatesRow}>
+              {TEMPLATES.map((template) => (
+                <Pressable
+                  key={template.id}
+                  onPress={() => handleSelectTemplate(template.id)}
+                  style={[
+                    styles.templateCard,
+                    selectedTemplateId === template.id && styles.templateCardActive,
+                  ]}
+                >
+                  <Text style={styles.templateIcon}>
+                    {template.icon === 'mobile' ? '📱' : 
+                     template.icon === 'globe' ? '🌐' : 
+                     template.icon === 'puzzle-piece' ? '🧩' : 
+                     template.icon === 'magic' ? '✨' : '📊'}
+                  </Text>
+                  <Text style={[
+                    styles.templateName,
+                    selectedTemplateId === template.id && styles.templateNameActive,
+                  ]}>
+                    {template.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+
           {/* Title */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Title</Text>
@@ -177,6 +226,19 @@ export default function AddExplorationModal() {
                 </Pressable>
               ))}
             </View>
+          </View>
+
+          {/* Tags */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tags</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="tag1, tag2, tag3..."
+              placeholderTextColor={COLORS.textMuted}
+              value={tags}
+              onChangeText={setTags}
+            />
+            <Text style={styles.hint}>Separate tags with commas</Text>
           </View>
         </ScrollView>
 
@@ -307,5 +369,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  templatesRow: {
+    marginHorizontal: -4,
+  },
+  templateCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 14,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  templateCardActive: {
+    backgroundColor: COLORS.blue + '20',
+    borderColor: COLORS.blue,
+  },
+  templateIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  templateName: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+  },
+  templateNameActive: {
+    color: COLORS.blue,
+  },
+  hint: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 8,
   },
 });

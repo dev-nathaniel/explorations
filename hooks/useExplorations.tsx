@@ -1,4 +1,5 @@
-import { Exploration, generateId, getDayOfYear } from '@/types/types';
+import { ACHIEVEMENTS } from '@/constants/achievements';
+import { Achievement, Exploration, ExplorationCategory, ExplorationStatus, generateId, getDayOfYear } from '@/types/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
@@ -29,8 +30,31 @@ interface ExplorationsContextType {
   updateExploration: (id: string, data: Partial<Exploration>) => Promise<void>;
   deleteExploration: (id: string) => Promise<void>;
   getStreak: () => number;
+  getLongestStreak: () => number;
   getByDate: (date: string) => Exploration[];
   reload: () => Promise<void>;
+  searchExplorations: (query: string, filters?: SearchFilters) => Exploration[];
+  getStats: () => ExplorationStats;
+  getAchievements: () => Achievement[];
+  getAllTags: () => string[];
+}
+
+interface SearchFilters {
+  status?: ExplorationStatus;
+  category?: ExplorationCategory;
+  tags?: string[];
+}
+
+interface ExplorationStats {
+  total: number;
+  completed: number;
+  inProgress: number;
+  ideas: number;
+  thisWeek: number;
+  thisMonth: number;
+  byCategory: Record<ExplorationCategory, number>;
+  currentStreak: number;
+  longestStreak: number;
 }
 
 const ExplorationsContext = createContext<ExplorationsContextType | null>(null);
@@ -206,6 +230,142 @@ export function ExplorationsProvider({ children }: { children: ReactNode }): Rea
     return explorations.filter(exp => exp.date === date);
   }, [explorations]);
 
+  const getLongestStreak = useCallback(() => {
+    const completedDays = new Set(
+      explorations.filter(e => e.status === 'completed').map(e => e.dayNumber)
+    );
+    const sortedDays = Array.from(completedDays).sort((a, b) => a - b);
+    let longest = 0;
+    let current = 0;
+    let prev = -2;
+    
+    for (const day of sortedDays) {
+      if (day === prev + 1) {
+        current++;
+      } else {
+        current = 1;
+      }
+      longest = Math.max(longest, current);
+      prev = day;
+    }
+    return longest;
+  }, [explorations]);
+
+  const searchExplorations = useCallback((query: string, filters?: { status?: ExplorationStatus; category?: ExplorationCategory; tags?: string[] }) => {
+    let results = explorations;
+    
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      results = results.filter(exp => 
+        exp.title.toLowerCase().includes(q) ||
+        (exp.description?.toLowerCase().includes(q)) ||
+        (exp.tags?.some(tag => tag.toLowerCase().includes(q)))
+      );
+    }
+    
+    if (filters?.status) {
+      results = results.filter(exp => exp.status === filters.status);
+    }
+    
+    if (filters?.category) {
+      results = results.filter(exp => exp.category === filters.category);
+    }
+    
+    if (filters?.tags && filters.tags.length > 0) {
+      results = results.filter(exp => 
+        filters.tags!.some(tag => exp.tags?.includes(tag))
+      );
+    }
+    
+    return results;
+  }, [explorations]);
+
+  const getStats = useCallback((): {
+    total: number;
+    completed: number;
+    inProgress: number;
+    ideas: number;
+    thisWeek: number;
+    thisMonth: number;
+    byCategory: Record<ExplorationCategory, number>;
+    currentStreak: number;
+    longestStreak: number;
+  } => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const byCategory: Record<ExplorationCategory, number> = {
+      mobile: 0,
+      web: 0,
+      component: 0,
+      animation: 0,
+      other: 0,
+    };
+    
+    explorations.forEach(exp => {
+      byCategory[exp.category]++;
+    });
+    
+    return {
+      total: explorations.length,
+      completed: explorations.filter(e => e.status === 'completed').length,
+      inProgress: explorations.filter(e => e.status === 'in-progress').length,
+      ideas: explorations.filter(e => e.status === 'idea').length,
+      thisWeek: explorations.filter(e => new Date(e.date) >= startOfWeek).length,
+      thisMonth: explorations.filter(e => new Date(e.date) >= startOfMonth).length,
+      byCategory,
+      currentStreak: getStreak(),
+      longestStreak: getLongestStreak(),
+    };
+  }, [explorations, getStreak, getLongestStreak]);
+
+  const getAchievements = useCallback((): Achievement[] => {
+    const stats = getStats();
+    const uniqueCategories = new Set(explorations.map(e => e.category)).size;
+    const maxDaily = Math.max(...Object.values(
+      explorations.reduce((acc, exp) => {
+        acc[exp.date] = (acc[exp.date] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    ), 0);
+    
+    return ACHIEVEMENTS.map(achievement => {
+      let unlocked = false;
+      
+      switch (achievement.condition.type) {
+        case 'total':
+          unlocked = stats.completed >= achievement.condition.value;
+          break;
+        case 'streak':
+          unlocked = stats.longestStreak >= achievement.condition.value;
+          break;
+        case 'category':
+          unlocked = uniqueCategories >= achievement.condition.value;
+          break;
+        case 'daily':
+          unlocked = maxDaily >= achievement.condition.value;
+          break;
+      }
+      
+      return {
+        ...achievement,
+        unlockedAt: unlocked ? new Date().toISOString() : undefined,
+      };
+    });
+  }, [explorations, getStats]);
+
+  const getAllTags = useCallback(() => {
+    const tagSet = new Set<string>();
+    explorations.forEach(exp => {
+      exp.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [explorations]);
+
   useEffect(() => {
     loadExplorations();
   }, [loadExplorations]);
@@ -219,8 +379,13 @@ export function ExplorationsProvider({ children }: { children: ReactNode }): Rea
       updateExploration,
       deleteExploration,
       getStreak,
+      getLongestStreak,
       getByDate,
       reload: loadExplorations,
+      searchExplorations,
+      getStats,
+      getAchievements,
+      getAllTags,
     }}>
       {children}
     </ExplorationsContext.Provider>
